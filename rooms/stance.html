@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>流派 · 微宇宙</title>
+<link rel="stylesheet" href="../style.css">
+<style>
+  .back { font-size: 12.5px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(178px, 1fr)); gap: 8px; }
+  .sk {
+    border: 1px solid var(--line); background: var(--panel); padding: 10px 11px;
+    cursor: pointer; text-align: left; font: inherit; color: inherit; width: 100%;
+  }
+  .sk:hover { border-color: var(--acc-line); background: var(--panel2); }
+  .sk.sel { border-color: var(--acc); background: var(--hi-bg); }
+  .sk .hd { display: flex; align-items: baseline; gap: 7px; }
+  .sk .g { font-size: 15px; color: var(--hi); }
+  .sk .n { font-size: 13.5px; color: var(--hi); }
+  .sk .d { font-size: 12px; color: var(--dim); margin-top: 4px; line-height: 2; }
+  .sk .kv { font-size: 12px; color: var(--acc); margin-top: 5px; line-height: 2; }
+  .kv b { color: var(--hi); font-weight: 400; }
+  .read { border: 1px solid var(--line); background: var(--panel); padding: 11px 13px; }
+  .read .t { color: var(--hi); font-size: 13.5px; }
+  .read .r { font-size: 12.5px; color: var(--dim); line-height: 2; margin-top: 6px; }
+  .read .r b { color: var(--fg); font-weight: 400; }
+  .up { color: var(--acc); }
+  .down { color: var(--bad); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1 class="h1">流 派</h1>
+    <span class="sub">STANCE · 风格改的是规则，它是角色玩法的一部分</span>
+    <a class="back" href="../index.html">← 回到总台</a>
+  </div>
+
+  <p class="lead">
+    这一页原来挤在设置里，跟皮肤并排摆着——那是错的。
+    <b>皮肤只换颜色，判定逐字相同；风格换的是规则</b>：出场多少、血有多厚、掉得多不多、
+    跑得多快。它是<b>你怎么打这一局</b>，不是这一局长什么样，所以它单开一间，
+    和装配台、养成室摆在一起。
+  </p>
+
+  <div class="sec">
+    <h2 class="h2">风 格 <span class="n" id="style-n"></span></h2>
+    <div class="cards" id="styles"></div>
+    <p class="hint" id="style-note"></p>
+  </div>
+
+  <div class="sec">
+    <h2 class="h2">这 一 套 会 把 你 变 成 什 么</h2>
+    <div class="read" id="read"></div>
+    <p class="hint">
+      上面这排数是<b>当前装配 + 当前流派</b>合出来的。换流派等于换一套底层乘算，
+      装配台那一圈不动——两者正交，任何装配都能配任何流派。
+    </p>
+  </div>
+
+  <div class="sec">
+    <h2 class="h2">说 明</h2>
+    <p class="hint">
+      流派在<b>重开一局时完全生效</b>；中途改也立刻写进规则，只是场上的东西不会倒回去重长。
+      改流派<b>不重置任何进度</b>，硬重置也留着这一页的选择。<br>
+      皮肤与无障碍开关在<a href="settings.html">设置</a>里。
+    </p>
+  </div>
+</div>
+
+<script src="../core/seed.js"></script>
+<script src="../core/eff.js"></script>
+<script src="../core/bus.js"></script>
+<script src="../core/lexicon.js"></script>
+<script src="../core/audio.js"></script>
+<script src="../core/cosmetics.js"></script>
+<script src="../world/nursery.js"></script>
+<script src="../world/modules.js"></script>
+<script src="../world/enemies.js"></script>
+<script src="../world/reactions.js"></script>
+<script src="../world/waves.js"></script>
+<script src="../world/ladder.js"></script>
+<script src="../world/epoch.js"></script>
+<script src="../world/anomaly.js"></script>
+<script>
+(function () {
+  'use strict';
+  var S = MC.bus.state;
+  MC.bus.load();
+  var $ = function (id) { return document.getElementById(id); };
+  if (!S.prefs) S.prefs = MC.cosmetics.blankPrefs();
+
+  var LABEL = {
+    speedMul: '移速', rateMul: '射速', hpMul: '生命', spawnMul: '出场数',
+    dropMul: '掉落', residueMul: '残渣', sizeMul: '弹径', hpWave: '血量坡度',
+    quiet: '不抽当波事件'
+  };
+
+  /* 任一风格的完整乘算：没写的键取中性值 1（quiet 取 0） */
+  function modsOf(st) {
+    var o = {
+      speedMul: 1, rateMul: 1, hpMul: 1, spawnMul: 1,
+      dropMul: 1, residueMul: 1, sizeMul: 1, hpWave: 1, quiet: 0
+    };
+    var m = st.mods || {};
+    for (var k in m) if (o[k] != null) o[k] = m[k];
+    return o;
+  }
+
+  function setStyle(id) {
+    S.prefs.style = id;
+    MC.bus.save();
+    MC.bus.emit('prefs', S.prefs);
+    MC.bus.emit('state', S);
+    paint();
+  }
+
+  function paintStyles() {
+    var box = $('styles');
+    box.innerHTML = '';
+    $('style-n').textContent = MC.STYLES.length + ' 种';
+    MC.STYLES.forEach(function (st) {
+      var kv = Object.keys(st.mods || {}).map(function (k) {
+        var v = st.mods[k];
+        if (k === 'quiet') return '不抽当波事件';
+        return (LABEL[k] || k) + ' ×' + v;
+      }).join('　');
+      var b = document.createElement('button');
+      b.className = 'sk' + (S.prefs.style === st.id ? ' sel' : '');
+      b.innerHTML = '<div class="hd"><span class="g">' + st.glyph + '</span><span class="n">' + st.name + '</span></div>' +
+        '<div class="d">' + st.note + '</div>' +
+        (kv ? '<div class="kv">' + kv + '</div>' : '<div class="kv">规则一条不改</div>');
+      b.onclick = function () { setStyle(st.id); };
+      box.appendChild(b);
+    });
+    var cur = MC.cosmetics.styleById(S.prefs.style);
+    $('style-note').innerHTML = '当前：<b>' + (cur ? cur.name : S.prefs.style) + '</b>　' +
+      (cur ? cur.note : '');
+  }
+
+  /* 把当前流派落到具体读数上：看不见的乘算要能被读出来 */
+  function paintRead() {
+    var st = MC.cosmetics.styleById(S.prefs.style) || MC.STYLES[0];
+    var o = modsOf(st);
+    var m = MC.modules.compile(S.rig).mods;
+    var law = MC.epoch.laws(S.kills) || {};
+    var hw = o.hpWave * (law.hpWave || 1);
+
+    function tag(v) {
+      var cls = v > 1.001 ? 'up' : (v < 0.999 ? 'down' : '');
+      return '<b class="' + cls + '">×' + (Math.round(v * 100) / 100) + '</b>';
+    }
+    $('read').innerHTML =
+      '<div class="t">' + st.glyph + ' ' + st.name + '　' + st.note + '</div>' +
+      '<div class="r">' +
+      '生命上限 ' + tag(o.hpMul) + '　（当前装配合出来 <b>' + Math.round(m.hp) + '</b>）<br>' +
+      '移速 ' + tag(o.speedMul) + '　射速间隔 ' + tag(o.rateMul) + '（越小越快）　弹径 ' + tag(o.sizeMul) + '<br>' +
+      '敌人出场数 ' + tag(o.spawnMul) + '　敌人血量坡度 ' + tag(hw) +
+      '　（<b>' + (Math.round(hw * 100) / 100) + '</b> = 纪元律 ' + (law.hpWave || 1) + ' × 流派 ' + o.hpWave + '）<br>' +
+      '掉落 ' + tag(o.dropMul) + '　残渣 ' + tag(o.residueMul) +
+      (o.quiet ? '　<b>当波事件整条不抽</b>' : '') +
+      '</div>';
+  }
+
+  function paint() { paintStyles(); paintRead(); }
+
+  MC.bus.on('state', paint);
+  MC.bus.on('rig', paint);
+  MC.bus.hello();
+  MC.cosmetics.applySkin();
+  paint();
+})();
+</script>
+</body>
+</html>

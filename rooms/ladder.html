@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>阶跃 · 微宇宙</title>
+<link rel="stylesheet" href="../style.css">
+<style>
+  .back { font-size: 12.5px; }
+  .step {
+    border: 1px solid var(--line); background: var(--panel); padding: 10px 12px;
+    display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap;
+  }
+  .step.on { border-color: var(--acc-line); background: var(--panel2); }
+  .step.bad { border-color: #5a2e2a; background: var(--panel2); }
+  .step .at { font-size: 15px; color: var(--dim); min-width: 74px; }
+  .step.on .at { color: var(--acc); }
+  .step.bad .at { color: var(--bad); }
+  .step .nm { color: var(--hi); font-size: 13.5px; min-width: 58px; }
+  .step .nt { color: var(--dim); font-size: 12.5px; flex: 1; }
+  .step .st { font-size: 11.5px; }
+  .now { border: 1px solid var(--line); background: var(--panel); padding: 11px 13px; }
+  .now .t { color: var(--hi); font-size: 13.5px; }
+  .now ul { margin: 7px 0 0; padding-left: 16px; color: var(--dim); font-size: 12.5px; line-height: 2; }
+  .now ul li.on { color: var(--fg); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1 class="h1">阶 跃</h1>
+    <span class="sub">LADDER · 数量级跨过去，规则就换一条</span>
+    <a class="back" href="../index.html">← 回到总台</a>
+  </div>
+
+  <p class="lead">
+    累计击杀每跨一道门槛，<b>这个世界换一条规则</b>。后面几条是压力——
+    数量级上去了，世界也跟着变。养成的「近」会把所有门槛压低一档。
+  </p>
+  <p class="hint">
+    阶跃改的是<b>场上会发生什么</b>。同一根计数轴上还有另一把尺子：
+    <b>纪元</b>改的是「数字本身怎么长」。两把尺子读的是同一个累计击杀数。
+  </p>
+
+  <div class="sec">
+    <h2 class="h2">阶 梯 <span class="n" id="now"></span></h2>
+    <div class="bar" style="margin-bottom:10px"><i id="pbar" style="width:0%"></i></div>
+    <div id="list" style="display:grid;gap:7px"></div>
+  </div>
+
+  <div class="sec">
+    <h2 class="h2">纪 元 <span class="n" id="enow"></span></h2>
+    <div class="bar" style="margin-bottom:10px"><i id="ebar" style="width:0%"></i></div>
+    <div id="elist" style="display:grid;gap:7px"></div>
+  </div>
+
+  <div class="sec">
+    <h2 class="h2">当 前 在 场 的 规 则</h2>
+    <div class="now" id="plan"></div>
+  </div>
+</div>
+
+<script src="../core/seed.js"></script>
+<script src="../core/eff.js"></script>
+<script src="../core/bus.js"></script>
+<script src="../core/lexicon.js"></script>
+<script src="../core/audio.js"></script>
+<script src="../core/cosmetics.js"></script>
+<script src="../world/nursery.js"></script>
+<script src="../world/modules.js"></script>
+<script src="../world/enemies.js"></script>
+<script src="../world/reactions.js"></script>
+<script src="../world/waves.js"></script>
+<script src="../world/ladder.js"></script>
+<script src="../world/epoch.js"></script>
+<script src="../world/anomaly.js"></script>
+<script>
+(function () {
+  'use strict';
+  var S = MC.bus.state;
+  MC.bus.load();
+  var $ = function (id) { return document.getElementById(id); };
+
+  function paintEpochs(kills) {
+    var idx = MC.epoch.idxOf(kills);
+    var cur = MC.epoch.cur(kills);
+    var nx = MC.epoch.next(kills);
+    $('enow').textContent = cur.name + ' · ' + MC.ladder.fmt(kills) + ' 击杀';
+    $('ebar').style.width = (MC.epoch.progressTo(kills) * 100).toFixed(1) + '%';
+    var box = $('elist');
+    box.innerHTML = '';
+    MC.EPOCHS.forEach(function (e, i) {
+      if (i === 0) return;                 /* 第 0 纪元是中性值，不占一行 */
+      var pk = MC.epoch.peek(e, kills);
+      var L = pk.laws;
+      var lawTxt = Object.keys(L).filter(function (k) { return Math.abs(L[k] - 1) > 0.001; })
+        .map(function (k) { return k + ' ×' + (Math.round(L[k] * 100) / 100); }).join('　');
+      var d = document.createElement('div');
+      d.className = 'step' + (pk.got ? (pk.good ? ' on' : ' bad') : '');
+      d.innerHTML =
+        '<span class="at">' + MC.ladder.fmt(pk.at) + '</span>' +
+        '<span class="nm">' + (pk.got ? (pk.glyph + ' ' + pk.name) : '？') + '</span>' +
+        '<span class="nt">' + (pk.got ? (pk.note + (lawTxt ? '　律：' + lawTxt : '')) : '到了自然就知道了。') + '</span>' +
+        '<span class="st">' + (pk.got ? (pk.good ? '增益' : '压力') : '') + '</span>';
+      box.appendChild(d);
+    });
+  }
+
+  function paint() {
+    var kills = S.kills || 0;
+    var tier = MC.ladder.tierOf(kills);
+    $('now').textContent = '第 ' + tier + ' 阶 · ' + MC.ladder.fmt(kills) + ' 击杀';
+    $('pbar').style.width = (MC.ladder.progressTo(kills) * 100).toFixed(1) + '%';
+
+    var box = $('list');
+    box.innerHTML = '';
+    MC.LADDER.forEach(function (l) {
+      var pk = MC.ladder.peek(l, kills);
+      var d = document.createElement('div');
+      d.className = 'step' + (pk.got ? (pk.good ? ' on' : ' bad') : '');
+      d.innerHTML =
+        '<span class="at">' + MC.ladder.fmt(pk.at) + '</span>' +
+        '<span class="nm">' + (pk.got ? (pk.glyph + ' ' + pk.name) : '？') + '</span>' +
+        '<span class="nt">' + (pk.got ? pk.note : '到了自然就知道了。') + '</span>' +
+        '<span class="st">' + (pk.got ? (pk.good ? '增益' : '压力') : '') + '</span>';
+      box.appendChild(d);
+    });
+    paintEpochs(kills);
+    paintRules(kills);
+  }
+
+  function paintRules(kills) {
+    var fx = MC.ladder.effects(kills);
+    var nxt = MC.ladder.next(kills);
+    var rules = [
+      { on: fx.dropMul > 1, txt: '掉落 ×' + fx.dropMul },
+      { on: fx.pierceAdd > 0, txt: '所有弹丸额外穿透 +' + fx.pierceAdd },
+      { on: fx.autoTurret > 0, txt: '核心外多 ' + fx.autoTurret + ' 座自动炮' },
+      { on: fx.respawnChance > 0, txt: '击杀后 ' + Math.round(fx.respawnChance * 100) + '% 再长一个' },
+      { on: fx.devour, txt: '敌人开始互相吞噬' },
+      { on: fx.mirrorChance > 0, txt: '敌人进场 ' + Math.round(fx.mirrorChance * 100) + '% 带镜像' },
+      { on: fx.decay > 0, txt: '你一直在掉血（' + fx.decay.toFixed(1) + '/s）' },
+      { on: fx.allRules, txt: '以上所有规则同时在场' }
+    ];
+    var html = '<div class="t">第 ' + fx.tier + ' 阶　' +
+      (nxt ? ('距下一阶还差 ' + MC.ladder.fmt(Math.max(0, MC.ladder.atOf(nxt.tier) - kills)) + ' 击杀') : '已到顶') + '</div>';
+    html += '<ul>';
+    rules.forEach(function (r) {
+      html += '<li class="' + (r.on ? 'on' : '') + '">' + (r.on ? '● ' : '○ ') + r.txt + '</li>';
+    });
+    html += '</ul>';
+    $('plan').innerHTML = html;
+  }
+
+  MC.bus.on('state', paint);
+  MC.bus.on('found', paint);
+  MC.bus.hello();
+  paint();
+})();
+</script>
+</body>
+</html>

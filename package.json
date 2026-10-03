@@ -1,0 +1,24 @@
+{
+  "name": "microcosm-personal",
+  "version": "2.0.0",
+  "private": true,
+  "description": "微宇宙 · MICROCOSM —— 一个同时是独立游戏的离线网页。无构建、无依赖、无后端。",
+  "scripts": {
+    "test": "node test/smoke.mjs",
+    "test:core": "node test/smoke.mjs core",
+    "test:engine": "node test/smoke.mjs engine",
+    "test:economy": "node test/smoke.mjs economy",
+    "test:hub": "node test/smoke.mjs hub",
+    "test:rooms": "node test/smoke.mjs rooms",
+    "test:anomaly": "node test/smoke.mjs anomaly",
+    "test:guide": "node test/smoke.mjs guide",
+    "test:tone": "node test/smoke.mjs tone",
+    "test:read": "node test/smoke.mjs read"
+  },
+  "devDependencies": {
+    "jsdom": "^26.1.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

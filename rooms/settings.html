@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>设置 · 微宇宙</title>
+<link rel="stylesheet" href="../style.css">
+<style>
+  .back { font-size: 12.5px; }
+  .sec2 { margin-top: 20px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 8px; }
+  /* 开关卡比皮肤卡承载的字多：一句说明加一个状态位。
+     共用 168px 的最小列宽会把说明压成三四行的窄条，所以单独给一档更宽的列。 */
+  .cards.wide { grid-template-columns: repeat(auto-fill, minmax(272px, 1fr)); }
+  .sk {
+    border: 1px solid var(--line); background: var(--panel); padding: 9px 10px;
+    cursor: pointer; text-align: left; font: inherit; color: inherit; width: 100%;
+  }
+  .sk:hover { border-color: var(--acc-line); background: var(--panel2); }
+  .sk.sel { border-color: var(--acc); background: var(--hi-bg); }
+  .sk .hd { display: flex; align-items: baseline; gap: 7px; }
+  .sk .g { font-size: 15px; color: var(--hi); }
+  .sk .n { font-size: 13.5px; color: var(--hi); }
+  .sk .d { font-size: 12px; color: var(--dim); margin-top: 3px; line-height: 2; }
+  /* 皮肤预览：直接铺这套装扮自己的颜色 */
+  .sw { display: flex; gap: 3px; margin-top: 6px; }
+  .sw i { width: 15px; height: 9px; border: 1px solid rgba(255,255,255,0.14); }
+  .kv { font-size: 12px; color: var(--dim); line-height: 2; }
+  .kv b { color: var(--hi); font-weight: 400; }
+  .tog {
+    display: flex; gap: 9px; align-items: center; font-size: 13px; color: var(--fg);
+    border: 1px solid var(--line); background: var(--panel); padding: 7px 11px; cursor: pointer;
+    width: 100%; min-width: 0; text-align: left; align-items: flex-start;
+  }
+  /* 说明那一段要能被压窄，否则它会把「开 / 关」挤出格子 */
+  .tog > div:first-child { min-width: 0; }
+  .tog:hover { border-color: var(--acc-line); }
+  .tog.on { border-color: var(--acc); background: var(--hi-bg); color: var(--acc); }
+  .tog .d { font-size: 11.5px; color: var(--dim); margin-top: 2px; line-height: 1.9; }
+  .tog .box2 { margin-left: auto; font-size: 11.5px; color: var(--dim); white-space: nowrap; }
+  .row2 { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1 class="h1">设 置</h1>
+    <span class="sub">SETTINGS · 皮肤、操作与无障碍</span>
+    <a class="back" href="../index.html">← 回到总台</a>
+  </div>
+
+  <p class="lead">
+    <b>皮肤</b>只换颜色，判定逐字相同。硬重置留着这一页的选择。
+  </p>
+  <p class="hint">
+    <b>风格</b>不在这里了。它改的是规则（出场数、血量、掉落、速度），
+    那是<b>角色玩法</b>，不是外观——它已经搬到<a href="stance.html">流派</a>那一间，
+    和装配台、养成室摆在一起。
+  </p>
+
+  <div class="sec2">
+    <h2 class="h2">皮 肤 <span class="n" id="skin-n"></span></h2>
+    <div class="cards" id="skins"></div>
+    <p class="hint">换皮即时生效。舞台、所有房间与内置说明一起换。</p>
+  </div>
+
+  <div class="sec2">
+    <h2 class="h2">操 作</h2>
+    <div class="cards" id="aim"></div>
+  </div>
+
+  <div class="sec2">
+    <h2 class="h2">无 障 碍 与 声 音</h2>
+    <div class="cards wide" id="toggles"></div>
+    <div class="warnbox" style="border:1px solid var(--line2);border-left:2px solid var(--warn);background:var(--panel);padding:9px 12px;margin-top:10px">
+      <b style="color:var(--warn);font-weight:400">光敏提醒　</b>受击只做一次短闪，不做周期闪烁、全屏反相、突然强光。
+      若你对闪烁敏感，请开<b>冷静模式</b>：它压住数量与速度的上限，并关掉震屏。
+    </div>
+  </div>
+
+  <div class="sec2">
+    <h2 class="h2">当 前 读 数</h2>
+    <div class="kv" id="readout"></div>
+  </div>
+</div>
+
+<script src="../core/seed.js"></script>
+<script src="../core/eff.js"></script>
+<script src="../core/bus.js"></script>
+<script src="../core/lexicon.js"></script>
+<script src="../core/audio.js"></script>
+<script src="../core/cosmetics.js"></script>
+<script src="../world/nursery.js"></script>
+<script src="../world/modules.js"></script>
+<script src="../world/enemies.js"></script>
+<script src="../world/reactions.js"></script>
+<script src="../world/waves.js"></script>
+<script src="../world/ladder.js"></script>
+<script src="../world/epoch.js"></script>
+<script src="../world/anomaly.js"></script>
+<script>
+(function () {
+  'use strict';
+  var S = MC.bus.state;
+  MC.bus.load();
+  var $ = function (id) { return document.getElementById(id); };
+  if (!S.prefs) S.prefs = MC.cosmetics.blankPrefs();
+
+  function setPref(k, v) {
+    S.prefs[k] = v;
+    MC.bus.save();
+    if (k === 'skin') MC.cosmetics.applySkin();
+    MC.bus.emit('prefs', S.prefs);
+    MC.bus.emit('state', S);
+    paint();
+  }
+
+  function paintSkins() {
+    var box = $('skins');
+    box.innerHTML = '';
+    $('skin-n').textContent = MC.SKINS.length + ' 套';
+    MC.SKINS.forEach(function (sk) {
+      var b = document.createElement('button');
+      b.className = 'sk' + (S.prefs.skin === sk.id ? ' sel' : '');
+      var sw = ['bg', 'panel', 'acc', 'acc2', 'ballistic', 'chassis', 'rule', 'rare']
+        .map(function (k) { return '<i style="background:' + sk.ui[k] + '"></i>'; }).join('');
+      b.innerHTML = '<div class="hd"><span class="g">' + sk.glyph + '</span><span class="n">' + sk.name + '</span></div>' +
+        '<div class="sw">' + sw + '</div>' +
+        '<div class="d">' + sk.note + '</div>';
+      b.onclick = function () { setPref('skin', sk.id); };
+      box.appendChild(b);
+    });
+  }
+
+  /* 风格已经搬到 rooms/stance.html。它改的是规则（角色玩法），
+     不该和外肤、无障碍开关并排摆着——两件事不是一类。 */
+
+  function paintAim() {
+    var box = $('aim');
+    box.innerHTML = '';
+    var AIMS = [
+      { id: 'manual', g: '⊙', n: '手动瞄准', d: '键盘移动，鼠标决定方向。开火节奏仍然自动——节奏是系统的一部分，方向是你的。' },
+      { id: 'lock',   g: '⊕', n: '锁最近', d: '朝最近的敌人开火。适合先摸清构筑，但它会替你做瞄准这件事。' }
+    ];
+    AIMS.forEach(function (a) {
+      var b = document.createElement('button');
+      b.className = 'sk' + (S.prefs.aim === a.id ? ' sel' : '');
+      b.innerHTML = '<div class="hd"><span class="g">' + a.g + '</span><span class="n">' + a.n + '</span></div>' +
+        '<div class="d">' + a.d + '</div>';
+      b.onclick = function () { setPref('aim', a.id); };
+      box.appendChild(b);
+    });
+  }
+
+  function paintToggles() {
+    var box = $('toggles');
+    box.innerHTML = '';
+    var T = [
+      { k: 'fx', n: '画面特效', d: '震屏与闪白。关掉它不影响任何判定。', get: function () { return S.prefs.fx !== 0; },
+        set: function () { S.prefs.fx = S.prefs.fx ? 0 : 1; } },
+      { k: 'showFoeHp', n: '显示敌方血条', d: '每一只头上的那一条。关掉它场上更干净。', get: function () { return S.prefs.showFoeHp !== 0; },
+        set: function () { S.prefs.showFoeHp = S.prefs.showFoeHp ? 0 : 1; } },
+      { k: 'calm', n: '冷静模式', d: '压住数量、速度、弹速与音量的上限。规则一条不改。', get: function () { return !!S.calm; },
+        set: function () { S.calm = !S.calm; MC.audio.applyVolume(); } },
+      { k: 'sound', n: '声轨', d: '起于静默位，要你先点一下才出声。它不进任何判定。', get: function () { return !!S.sound; },
+        set: function () {
+          if (!S.sound) { if (!MC.audio.enable()) { MC.bus.toast('这台设备给不出声音，其余照常'); return; } S.sound = true; }
+          else { S.sound = false; MC.audio.disable(); }
+        } }
+    ];
+    T.forEach(function (t) {
+      var b = document.createElement('button');
+      b.className = 'tog' + (t.get() ? ' on' : '');
+      b.innerHTML = '<div><div>' + t.n + '</div><div class="d">' + t.d + '</div></div>' +
+        '<div class="box2">' + (t.get() ? '开' : '关') + '</div>';
+      b.onclick = function () { t.set(); MC.bus.save(); MC.bus.emit('state', S); paint(); };
+      box.appendChild(b);
+    });
+  }
+
+  function paintReadout() {
+    var nu = MC.nursery.effects();
+    var ep = MC.epoch.cur(S.kills);
+    $('readout').innerHTML =
+      '编号 <b>' + MC.seed.caseOf(S.seed) + '</b>　种子 <b>' + S.seed + '</b><br>' +
+      '累计击杀 <b>' + MC.ladder.fmt(S.kills) + '</b>　阶跃 <b>' + MC.ladder.tierOf(S.kills) + '</b>　' +
+      '纪元 <b>' + ep.name + '</b><br>' +
+      '养成 <b>' + Object.keys((S.nursery && S.nursery.done) || {}).length + '/' + MC.NURSERY.length + '</b>　' +
+      '残渣 <b>' + (S.residue || 0) + '</b>　未装配元件 <b>' + MC.bus.invTotal() + '</b><br>' +
+      '槽位 <b>' + nu.slots + '</b>　炉膛 <b>' + nu.vatSlots + '</b>';
+  }
+
+  function paint() { paintSkins(); paintAim(); paintToggles(); paintReadout(); }
+
+  MC.bus.on('state', paint);
+  MC.bus.hello();
+  MC.cosmetics.applySkin();
+  paint();
+})();
+</script>
+</body>
+</html>

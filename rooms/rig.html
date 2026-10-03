@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>装配台 · 微宇宙</title>
+<link rel="stylesheet" href="../style.css">
+<style>
+  .back { font-size: 12.5px; }
+  .ring { position: relative; width: 250px; height: 250px; margin: 4px auto 0; }
+  .ring .core {
+    position: absolute; left: 50%; top: 50%; width: 84px; height: 84px;
+    margin: -42px 0 0 -42px; border: 1px solid var(--line2);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; color: var(--dim); font-size: 12px; text-align: center;
+  }
+  .slot {
+    position: absolute; width: 66px; height: 66px; margin: -33px 0 0 -33px;
+    border: 1px solid var(--line); background: var(--panel);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer; transition: border-color .15s, background .15s;
+  }
+  .slot:hover { border-color: var(--acc-line); background: var(--panel2); }
+  .slot.sel { border-color: var(--acc); background: var(--hi-bg); }
+  .slot .g { font-size: 21px; line-height: 1; color: var(--hi); }
+  .slot .n { font-size: 11px; color: var(--dim); margin-top: 3px; }
+  .slot .i { position: absolute; top: 2px; left: 4px; font-size: 11px; color: var(--dim); }
+  .link { position: absolute; height: 1px; background: var(--line); transform-origin: 0 50%; }
+  .link.on { background: var(--acc); box-shadow: 0 0 6px rgba(111,227,200,.5); }
+  .sorts { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+  .sorts .lab { font-size: 13.5px; color: var(--dim2); letter-spacing: .16em; }
+  .sorts button { font-size: 13.5px; padding: 4px 9px; }
+  .sorts button.sel { color: var(--acc); border-color: var(--acc-line); background: var(--hi-bg); }
+  .picker { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 10px; }
+  .picker button { font-size: 15px; width: 42px; height: 38px; padding: 0; line-height: 1; }
+  .picker button small { display: block; font-size: 11px; color: var(--dim); margin-top: 1px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 6px; margin-top: 10px; }
+  .stats .s { border: 1px solid var(--line); padding: 4px 8px; font-size: 12px; color: var(--dim); }
+  .stats .s b { color: var(--hi); font-weight: 400; }
+  .syn { margin-top: 10px; }
+  .syn .y { border: 1px solid var(--acc-line); background: var(--panel); padding: 6px 9px; font-size: 12.5px; margin-bottom: 5px; }
+  .syn .y b { color: var(--acc); font-weight: 400; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1 class="h1">装 配 台</h1>
+    <span class="sub">RIG · 六个槽位，环形相邻会自己搭上</span>
+    <a class="back" href="../index.html">← 回到总台</a>
+  </div>
+
+  <p class="lead">把元件放进槽位。<b>挨着的两个如果对得上，会自己长出第三样东西</b>——
+    等级越高的两个挨在一起，长出来的越狠。</p>
+
+  <div class="sec">
+    <h2 class="h2">核 心 <span class="n" id="sel-n">未选中槽位</span></h2>
+    <div class="ring" id="ring"><div class="core" id="core"></div></div>
+    <div class="sorts" id="sorts"><span class="lab">排 序</span></div>
+    <div class="picker" id="picker"></div>
+    <div class="row" style="margin-top:8px">
+      <button id="clear">✕ 全部卸下</button>
+      <button id="auto">⤨ 自动装满</button>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h2 class="h2">当 前 数 值</h2>
+    <div class="stats" id="stats"></div>
+  </div>
+
+  <div class="sec">
+    <h2 class="h2">已 点 亮 的 协 同 <span class="n" id="syn-n"></span></h2>
+    <div class="syn" id="syn"></div>
+  </div>
+</div>
+
+<script src="../core/seed.js"></script>
+<script src="../core/eff.js"></script>
+<script src="../core/bus.js"></script>
+<script src="../core/lexicon.js"></script>
+<script src="../core/audio.js"></script>
+<script src="../core/cosmetics.js"></script>
+<script src="../world/nursery.js"></script>
+<script src="../world/modules.js"></script>
+<script src="../world/enemies.js"></script>
+<script src="../world/reactions.js"></script>
+<script src="../world/waves.js"></script>
+<script src="../world/ladder.js"></script>
+<script src="../world/epoch.js"></script>
+<script src="../world/anomaly.js"></script>
+<script>
+(function () {
+  'use strict';
+  var S = MC.bus.state;
+  MC.bus.load();
+  var $ = function (id) { return document.getElementById(id); };
+  var sel = -1;
+  var R = 92;
+
+  /* 排序控件：与图鉴同一张声明表、同一个偏好。 */
+  function paintSorts() {
+    var box = $('sorts');
+    Array.prototype.slice.call(box.querySelectorAll('button')).forEach(function (n) { n.remove(); });
+    var mode = MC.modules.sortMode();
+    MC.SORTS.forEach(function (s) {
+      var b = document.createElement('button');
+      b.className = s.id === mode ? 'sel' : '';
+      b.textContent = s.glyph + ' ' + s.name;
+      b.title = s.note;
+      b.onclick = function () { MC.modules.setSortMode(s.id); paint(); };
+      box.appendChild(b);
+    });
+  }
+
+  function paint() {
+    var ring = $('ring');
+    /* 清掉旧的槽位与连线，重画 */
+    Array.prototype.slice.call(ring.querySelectorAll('.slot, .link')).forEach(function (n) { n.remove(); });
+
+    var compiled = MC.modules.compile(S.rig);
+    var m = compiled.mods;
+    var slots = compiled.slots;      /* 养成室可以开出第七位 */
+    $('ring').style.width = $('ring').style.height = (slots > 6 ? 268 : 250) + 'px';
+    var C = (slots > 6 ? 134 : 125);
+
+    for (var i = 0; i < slots; i++) {
+      (function (i) {
+        var a = -Math.PI / 2 + i * (Math.PI * 2 / slots);
+        var x = C + Math.cos(a) * R, y = C + Math.sin(a) * R;
+
+        /* 与前一个槽位的连线：亮 = 触发了协同 */
+        var prev = (i - 1 + slots) % slots;
+        var la = -Math.PI / 2 + prev * (Math.PI * 2 / slots);
+        var px = C + Math.cos(la) * R, py = C + Math.sin(la) * R;
+        var link = document.createElement('div');
+        link.className = 'link';
+        var dx = x - px, dy = y - py;
+        var len = Math.hypot(dx, dy);
+        link.style.left = px + 'px';
+        link.style.top = py + 'px';
+        link.style.width = len + 'px';
+        link.style.transform = 'rotate(' + Math.atan2(dy, dx) + 'rad)';
+        var on = MC.modules.synergyBetween(S.rig[prev], S.rig[i]);
+        if (on) link.className = 'link on';
+        link.title = on ? (on.name + '　' + on.note) : '';
+        ring.appendChild(link);
+
+        var d = document.createElement('div');
+        d.className = 'slot' + (sel === i ? ' sel' : '');
+        d.style.left = x + 'px';
+        d.style.top = y + 'px';
+        var mod = MC.modules.byId(S.rig[i]);
+        d.innerHTML = '<span class="i">' + (i + 1) + '</span>' +
+          '<span class="g ' + (mod ? 'cat-' + mod.cat : '') + '">' + (mod ? mod.glyph : '·') + '</span>' +
+          '<span class="n">' + (mod ? mod.name : '空') + '</span>';
+        if (mod) d.title = mod.name + '　' + mod.note;
+        d.onclick = function () { sel = (sel === i ? -1 : i); paint(); };
+        ring.appendChild(d);
+      })(i);
+    }
+
+    $('core').innerHTML = '<div>核心</div><div style="color:var(--hi);font-size:14.5px">' +
+      Math.round(m.hp) + ' HP</div><div>' + Math.round(m.dmg) + ' 伤害</div>';
+    $('sel-n').textContent = sel >= 0 ? ('正在装第 ' + (sel + 1) + ' 槽') : '未选中槽位';
+
+    paintSorts();
+
+    /* 可选元件：只列库存里有的。
+       库存记的是「未装配数」，所以装一个就是从库存里扣一个——不再数 rig。 */
+    var pk = $('picker');
+    pk.innerHTML = '';
+    if (sel < 0) {
+      pk.innerHTML = '<span class="hint" style="margin:0">点一个槽位，然后从这里挑。</span>';
+    } else {
+      var ids = Object.keys(S.inventory)
+        .filter(function (k) { return MC.bus.invCount(k) > 0; })
+        .map(function (k) { return MC.modules.byId(k); })
+        .filter(Boolean);
+      /* 排序与图鉴共用同一张排法表和同一个偏好，所以在哪间改都一样 */
+      ids = MC.modules.sorted(ids, MC.modules.sortMode())
+        .map(function (m) { return m.id; });
+      var cur = MC.modules.byId(S.rig[sel]);
+      /* 正在这一格上的那一件不算「可装」——它已经在这儿了 */
+      ids = ids.filter(function (k) { return !(cur && k === cur.id && MC.bus.invCount(k) <= 0); });
+      if (!ids.length) {
+        pk.innerHTML = '<span class="hint" style="margin:0">' +
+          (cur ? '这一格已经装满了。手上没有别的未装配元件。' : MC.text.t('emptyRig')) + '</span>';
+      }
+      ids.forEach(function (id) {
+        var mod = MC.modules.byId(id);
+        if (!mod) return;
+        var left = MC.bus.invCount(id);
+        var b = document.createElement('button');
+        b.innerHTML = '<span class="cat-' + mod.cat + '">' + mod.glyph + '</span><small>' + mod.name + ' ×' + left + '</small>';
+        b.title = mod.name + '　' + mod.note;
+        b.disabled = left <= 0;
+        b.onclick = function () {
+          /* 装上 = 从库存扣一个。原先占着这一格的还回库存（它只是换了位置）。 */
+          if (!MC.bus.invTake(id, 1)) { MC.bus.toast('库存不够'); return; }
+          var old = MC.modules.byId(S.rig[sel]);
+          if (old) MC.bus.invAdd(old.id, 1);
+          S.rig[sel] = id;
+          MC.bus.save();
+          MC.bus.mark('rig', '第 ' + (sel + 1) + ' 槽装上 ' + mod.name);
+          MC.bus.emit('rig', S.rig);
+          MC.bus.emit('state', S);
+          MC.audio.pick();
+          paint();
+        };
+        pk.appendChild(b);
+      });
+      /* 「卸下」只在这一格真的有东西时才出现。空槽给一个空按钮是噪音。 */
+      if (cur) {
+        var rm = document.createElement('button');
+        rm.textContent = '✕ 卸下';
+        rm.title = '卸下的那一件会回到库存。';
+        rm.onclick = function () {
+          if (!S.rig[sel]) return;
+          MC.bus.invAdd(S.rig[sel], 1);
+          S.rig[sel] = null;
+          MC.bus.save();
+          MC.bus.emit('rig', S.rig);
+          MC.bus.emit('state', S);
+          paint();
+        };
+        pk.appendChild(rm);
+      }
+    }
+
+    /* 数值 */
+    var show = [
+      ['伤害', Math.round(m.dmg)], ['射速(ms)', m.rate], ['弹丸', m.count],
+      ['穿透', m.pierce], ['弹速', m.bulletSpeed.toFixed(1)], ['散射', m.spread.toFixed(2)],
+      ['追踪', m.homing.toFixed(2)], ['链击', m.chain], ['爆破', Math.round(m.blast)],
+      ['暴击', Math.round(m.crit * 100) + '%'], ['吸血', Math.round(m.lifesteal * 100) + '%'],
+      ['减速', m.slow.toFixed(2)], ['生命', Math.round(m.hp)], ['护壁', Math.round(m.shield)],
+      ['再生', m.regen.toFixed(1) + '/s'], ['速度', m.speed.toFixed(2)], ['体型', m.radiusMul.toFixed(2)],
+      ['判定点', (m.hitR * (m.hitMul || 1)).toFixed(1)], ['分身', m.clone], ['环轨', Math.round(m.orbit)],
+      ['吸附', Math.round(m.magnet)], ['掉落', m.dropMul.toFixed(2) + '×']
+    ];
+    var st = $('stats');
+    st.innerHTML = '';
+    show.forEach(function (p) {
+      var d = document.createElement('div');
+      d.className = 's';
+      d.innerHTML = p[0] + ' <b>' + p[1] + '</b>';
+      st.appendChild(d);
+    });
+
+    /* 协同 */
+    var syn = $('syn');
+    syn.innerHTML = '';
+    $('syn-n').textContent = compiled.synergy.length + ' 条';
+    if (!compiled.synergy.length) {
+      syn.innerHTML = '<span class="hint" style="margin:0">两个挨着的还没搭上。试试把「连发」放在「散射」旁边。</span>';
+      return;
+    }
+    compiled.synergy.forEach(function (s) {
+      var d = document.createElement('div');
+      d.className = 'y';
+      var k = s.k ? ('　×' + s.k.toFixed(2)) : '';
+      d.innerHTML = '<b>◆ ' + s.def.name + '</b>' + k + '　' + s.def.note;
+      syn.appendChild(d);
+    });
+  }
+
+  /* 卸下全部：元件回到库存，不是销毁 */
+  $('clear').onclick = function () {
+    for (var k = 0; k < S.rig.length; k++) {
+      if (S.rig[k]) MC.bus.invAdd(S.rig[k], 1);
+      S.rig[k] = null;
+    }
+    MC.bus.save();
+    MC.bus.emit('rig', S.rig);
+    MC.bus.emit('state', S);
+    paint();
+  };
+  /* 自动装满：按阶位从高到低填。阶位高的先上——这是一条明确的取舍，不做推荐。 */
+  $('auto').onclick = function () {
+    var slots = MC.modules.compile(S.rig).slots;
+    /* 先把环上的全卸回库存，池子才是完整的 */
+    for (var k = 0; k < S.rig.length; k++) {
+      if (S.rig[k]) MC.bus.invAdd(S.rig[k], 1);
+      S.rig[k] = null;
+    }
+    var ids = Object.keys(S.inventory).filter(function (k) { return MC.bus.invCount(k) > 0; });
+    ids.sort(function (a, b) {
+      var ma = MC.modules.byId(a), mb = MC.modules.byId(b);
+      if (!ma || !mb) return 0;
+      return mb.tier - ma.tier;
+    });
+    for (var i = 0; i < slots; i++) {
+      if (i >= ids.length) break;
+      if (!MC.bus.invTake(ids[i], 1)) break;
+      S.rig[i] = ids[i];
+    }
+    MC.bus.save();
+    MC.bus.mark('rig', '自动装满');
+    MC.bus.emit('rig', S.rig);
+    MC.bus.emit('state', S);
+    paint();
+  };
+
+  MC.bus.on('state', paint);
+  MC.bus.on('pick', paint);
+  paint();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>培养皿 · 微宇宙</title>
+<link rel="stylesheet" href="../style.css">
+<style>
+  .back { font-size: 12.5px; }
+  .vats { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; }
+  .vat { border: 1px solid var(--line); background: var(--panel); padding: 13px; }
+  .two { display: flex; gap: 12px; align-items: center; justify-content: center; flex-wrap: wrap; }
+  .pick {
+    width: 84px; min-height: 84px; border: 1px solid var(--line); background: var(--btn);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer; padding: 5px;
+  }
+  .pick:hover { border-color: var(--acc-line); }
+  .pick.sel { border-color: var(--acc); }
+  .pick .g { font-size: 24px; line-height: 1; color: var(--hi); }
+  .pick .n { font-size: 11.5px; color: var(--dim); margin-top: 4px; }
+  .op { font-size: 20px; color: var(--dim); }
+  .peek { text-align: center; margin-top: 10px; font-size: 12.5px; color: var(--dim); min-height: 20px; line-height: 2; }
+  .peek b { color: var(--acc); font-weight: 400; }
+  .peek i { color: var(--hi); font-style: normal; }
+  .peek .cost { color: var(--warn); }
+  /* 排序条：与图鉴、装配台共用同一张声明表与同一个偏好 */
+  .sorts { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+  .sorts .lab { font-size: 13.5px; color: var(--dim2); letter-spacing: .16em; }
+  .sorts button { font-size: 13.5px; padding: 4px 9px; }
+  .sorts button.sel { color: var(--acc); border-color: var(--acc-line); background: var(--hi-bg); }
+  .opts { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 9px; justify-content: center; }
+  .opts button { font-size: 14.5px; width: 42px; height: 40px; padding: 0; line-height: 1.35; }
+  .opts button small { display: block; font-size: 11.5px; color: var(--dim); }
+  .opts button.sel { border-color: var(--acc); background: var(--hi-bg); }
+  .log { font-size: 12px; color: var(--dim); line-height: 1.9; }
+  .log b { color: var(--fg); font-weight: 400; }
+  .res { color: var(--warn); }
+  .economy {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin-top: 9px;
+  }
+  .economy .e { border: 1px solid var(--line); background: var(--panel); padding: 7px 10px; font-size: 12px; color: var(--dim); }
+  .economy .e b { color: var(--hi); font-weight: 400; }
+  .peekall { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; margin-top: 7px; }
+  .peekall .pv { font-size: 11.5px; border: 1px solid var(--acc-line); padding: 1px 6px; color: var(--hi); }
+  .peekall .pv.none { border-color: var(--line); color: var(--dim); }
+  .peekall .pv.res { border-color: #4a3a28; color: var(--warn); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1 class="h1">培 养 皿</h1>
+    <span class="sub">CULTURE · 投两个进去，立刻就知道长出什么</span>
+    <a class="back" href="../index.html">← 回到总台</a>
+  </div>
+
+  <p class="lead">
+    高阶元件打不出来，只能合出来。<b>合成不吃时间，吃元件</b>：
+    投进去的那两个当场扣掉，产物当场到手。
+    同一个东西投两次，会长出它更高一级的那一版。
+  </p>
+
+  <div class="sec">
+    <h2 class="h2">炉 膛 <span class="n" id="state-n">—</span></h2>
+    <div class="economy" id="eco"></div>
+    <div class="vats" id="vats" style="margin-top:9px"></div>
+    <div class="row" style="margin-top:10px">
+      <span class="hint" style="margin:0" id="pick-hint">点一个投料口，再从下面挑元件。</span>
+    </div>
+    <div class="sorts" id="sorts"><span class="lab">排 序</span></div>
+    <div class="opts" id="opts"></div>
+  </div>
+
+  <div class="sec">
+    <h2 class="h2">跑 通 过 的 组 合 <span class="n" id="rx-n"></span></h2>
+    <div class="log" id="rx"></div>
+    <p class="hint">
+      跑通一条就记一条。剩下的组合还多着——<b>投进去看看会长出什么</b>。
+    </p>
+  </div>
+</div>
+
+<script src="../core/seed.js"></script>
+<script src="../core/eff.js"></script>
+<script src="../core/bus.js"></script>
+<script src="../core/lexicon.js"></script>
+<script src="../core/audio.js"></script>
+<script src="../core/cosmetics.js"></script>
+<script src="../world/nursery.js"></script>
+<script src="../world/modules.js"></script>
+<script src="../world/enemies.js"></script>
+<script src="../world/reactions.js"></script>
+<script src="../world/waves.js"></script>
+<script src="../world/ladder.js"></script>
+<script src="../world/epoch.js"></script>
+<script src="../world/anomaly.js"></script>
+<script>
+(function () {
+  'use strict';
+  var S = MC.bus.state;
+  MC.bus.load();
+  var $ = function (id) { return document.getElementById(id); };
+  var sel = { vat: 0, side: 'a' };
+  var picks = [];
+
+  function vatCount() { return MC.nursery.effects().vatSlots; }
+  function recall() { return MC.nursery.effects().rxRecall; }
+  function peekAll() { return MC.nursery.effects().rxPeek; }
+
+  function key(a, b) { return [a, b].sort().join('+'); }
+  function mod(id) { return MC.modules.byId(id); }
+
+  function ensure() {
+    if (!Array.isArray(S.culture)) S.culture = [];
+    while (S.culture.length < vatCount()) S.culture.push(null);
+    while (picks.length < vatCount()) picks.push({ a: null, b: null });
+    if (sel.vat >= vatCount()) sel.vat = 0;
+  }
+
+  /* 库存语义是「未装配数」，所以这里直接读 bus 的读数，不再减去 rig 占的。
+     旧版这里自己数一遍 rig 再减，那正是「合成不扣元件」的来源之一。 */
+  function stock(id) { return MC.bus.invCount(id); }
+
+  function glyphHtml(id, fallback) {
+    var m = mod(id);
+    if (m) return '<span class="g cat-' + m.cat + '">' + m.glyph + '</span><span class="n">' + m.name + '</span>';
+    return '<span class="g">·</span><span class="n">' + fallback + '</span>';
+  }
+
+  /* ---- 合成：瞬时。扣两个，出产物，当场记册子。 ----
+     旧的 charge()/harvest()/leftOf()/startedAt 一整套挂钟逻辑已删除。 */
+  function fuse(vi) {
+    ensure();
+    var p = picks[vi];
+    if (!p.a || !p.b) { MC.bus.toast('两边都要选上'); return; }
+    if (stock(p.a) <= 0 || stock(p.b) <= 0) { MC.bus.toast('库存不够'); return; }
+    var rx = MC.reactions.find(p.a, p.b);
+    if (!rx) { MC.bus.toast('这一对还没跑过'); return; }
+
+    /* 扣元件：这一步是整个房间存在的前提 */
+    MC.bus.invTake(p.a, 1);
+    MC.bus.invTake(p.b, 1);
+
+    var got = [];
+    (rx.out || []).forEach(function (o) {
+      if (!mod(o)) return;
+      MC.bus.invAdd(o, 1);
+      if (!S.found[o]) { S.found[o] = true; MC.bus.emit('found', o); }
+      got.push((mod(o) || {}).name);
+    });
+    var residue = rx.residue || 0;
+    if (residue) MC.nursery.grantResidue(residue);
+
+    S.knownRx[key(p.a, p.b)] = { out: rx.out || [], residue: residue };
+    S.culture[vi] = null;
+    picks[vi] = { a: null, b: null };
+    MC.bus.save();
+    MC.bus.mark('culture', '投料 ' + ((mod(p.a) || {}).name) + ' + ' + ((mod(p.b) || {}).name) +
+      ' → ' + (got.join(' + ') || (residue ? '残渣 ×' + residue : '空')));
+    MC.bus.emit('state', S);
+    MC.audio.pick();
+    MC.bus.toast(got.length ? ('合成 ' + got.join(' + '))
+      : (residue ? ('合成出残渣 ×' + residue) : (rx.note || '这一炉是空的')));
+    paint();
+  }
+
+  /* ---- 预读：这一对会长出什么。养成室的「通谱」解锁。 ---- */
+  function peekHtml(a, b) {
+    var rx = MC.reactions.find(a, b);
+    if (!rx) return '<span class="dim">这一对还没跑过</span>';
+    if (rx.out && rx.out.length) {
+      return rx.out.map(function (o) {
+        var m = mod(o);
+        return m ? ('<i>' + m.glyph + ' ' + m.name + '</i>') : ('<i>' + o + '</i>');
+      }).join(' <b>或</b> ');
+    }
+    if (rx.residue) return '<span class="res">残渣 ×' + rx.residue + '</span>';
+    return '<span class="dim">空</span>';
+  }
+
+  function paintEco() {
+    var nu = MC.nursery.effects();
+    var total = MC.bus.invTotal();
+    var box = $('eco');
+    box.innerHTML =
+      '<div class="e">未装配元件 <b>' + total + '</b> 件。装进环上的那几件不在这儿。</div>' +
+      '<div class="e">每局结束，<b>未装配的元件全部退回熔炉</b>。装配、点亮、残渣留着。</div>' +
+      '<div class="e">合成 <b>不吃时间</b>，吃两个元件。产物当场到手。</div>' +
+      '<div class="e">炉膛 <b>' + nu.vatSlots + '</b> 格　·　' +
+      (peekAll() ? '已装<b>通谱</b>：投之前能看见结果' : '「通谱」未装：结果投下去才知道') + '</div>';
+  }
+
+  function paintVats() {
+    ensure();
+    var box = $('vats');
+    box.innerHTML = '';
+
+    for (var vi = 0; vi < vatCount(); vi++) {
+      (function (vi) {
+        var p = picks[vi];
+        var d = document.createElement('div');
+        d.className = 'vat';
+
+        d.innerHTML =
+          '<div class="two">' +
+          '<div class="pick" data-side="a">' + glyphHtml(p.a, '第一个') + '</div>' +
+          '<span class="op">+</span>' +
+          '<div class="pick" data-side="b">' + glyphHtml(p.b, '第二个') + '</div>' +
+          '</div>';
+
+        var peek = document.createElement('div');
+        peek.className = 'peek';
+        if (!p.a || !p.b) {
+          peek.innerHTML = '两边都选上。';
+        } else if (stock(p.a) <= 0 || stock(p.b) <= 0) {
+          peek.innerHTML = '<span class="res">库存不够。这一对拿不出来。</span>';
+        } else if (peekAll()) {
+          peek.innerHTML = '会长出　' + peekHtml(p.a, p.b) +
+            '<br><span class="cost">代价：' + ((mod(p.a) || {}).name) + ' ×1 ＋ ' +
+            ((mod(p.b) || {}).name) + ' ×1</span>';
+        } else {
+          var known = S.knownRx[key(p.a, p.b)];
+          peek.innerHTML = known
+            ? '这一条你跑过　<i>？</i>'
+            : '没跑过　<i>？</i>　投下去才知道';
+        }
+        d.appendChild(peek);
+
+        var acts = document.createElement('div');
+        acts.className = 'row';
+        acts.style.marginTop = '10px';
+        acts.style.justifyContent = 'center';
+        var go = document.createElement('button');
+        go.textContent = '⚗ 合成';
+        go.disabled = !p.a || !p.b || stock(p.a) <= 0 || stock(p.b) <= 0;
+        go.onclick = function () { fuse(vi); };
+        var clr = document.createElement('button');
+        clr.textContent = '✕ 放掉';
+        clr.disabled = !p.a && !p.b;
+        clr.onclick = function () { picks[vi] = { a: null, b: null }; paint(); };
+        acts.appendChild(go); acts.appendChild(clr);
+        d.appendChild(acts);
+
+        d.querySelectorAll('.pick').forEach(function (el) {
+          var side = el.getAttribute('data-side');
+          if (sel.vat === vi && sel.side === side) el.classList.add('sel');
+          el.onclick = function () { sel.vat = vi; sel.side = side; paint(); };
+        });
+
+        box.appendChild(d);
+      })(vi);
+    }
+    $('state-n').textContent = vatCount() + ' 格 · 瞬时';
+  }
+
+  /* 排序控件：与图鉴、装配台同一张声明表、同一个偏好。 */
+  function paintSorts() {
+    var box = $('sorts');
+    Array.prototype.slice.call(box.querySelectorAll('button')).forEach(function (n) { n.remove(); });
+    var mode = MC.modules.sortMode();
+    MC.SORTS.forEach(function (s) {
+      var b = document.createElement('button');
+      b.className = s.id === mode ? 'sel' : '';
+      b.textContent = s.glyph + ' ' + s.name;
+      b.title = s.note;
+      b.onclick = function () { MC.modules.setSortMode(s.id); paint(); };
+      box.appendChild(b);
+    });
+  }
+
+  function paintOpts() {
+    ensure();
+    var box = $('opts');
+    box.innerHTML = '';
+    var ids = Object.keys(S.inventory)
+      .filter(function (k) { return stock(k) > 0; })
+      .map(function (k) { return MC.modules.byId(k); })
+      .filter(Boolean);
+    /* 排法与图鉴、装配台共用：在哪一间改，三间一起跟着改 */
+    ids = MC.modules.sorted(ids, MC.modules.sortMode()).map(function (m) { return m.id; });
+    if (!ids.length) {
+      box.innerHTML = '<span class="hint" style="margin:0">手上空空。去主舞台打几个下来。</span>';
+      return;
+    }
+    $('pick-hint').textContent = '正在给炉膛 ' + (sel.vat + 1) + ' 的' + (sel.side === 'a' ? '第一' : '第二') + '个挑元件。';
+    ids.forEach(function (id) {
+      var m = mod(id);
+      if (!m) return;
+      var b = document.createElement('button');
+      var cur = picks[sel.vat] || {};
+      if (cur[sel.side] === id) b.className = 'sel';
+      b.innerHTML = '<span class="cat-' + m.cat + '">' + m.glyph + '</span><small>×' + stock(id) + '</small>';
+      b.title = m.name + '　' + m.note;
+      b.onclick = function () {
+        cur[sel.side] = id;
+        sel.side = sel.side === 'a' ? 'b' : 'a';
+        paint();
+      };
+      box.appendChild(b);
+    });
+  }
+
+  function paintRx() {
+    var box = $('rx');
+    var ks = Object.keys(S.knownRx || {});
+    $('rx-n').textContent = ks.length + ' / ' + MC.reactions.total();
+    box.innerHTML = '';
+    if (!ks.length) {
+      box.innerHTML = '一条都没跑通。试试两个「直击」。';
+      return;
+    }
+    ks.slice(-40).forEach(function (k) {
+      var rec = S.knownRx[k];
+      var parts = k.split('+');
+      var A = mod(parts[0]), B = mod(parts[1]);
+      if (!A || !B) return;
+      var outs = (rec.out || []).map(function (o) {
+        var m = mod(o);
+        return m ? ('<span class="cat-' + m.cat + '">' + m.glyph + '</span> ' + m.name) : o;
+      }).join(' + ');
+      var tail = outs || (rec.residue ? ('<span class="res">残渣 ×' + rec.residue + '</span>') : '空');
+      var d = document.createElement('div');
+      d.innerHTML = '<span class="cat-' + A.cat + '">' + A.glyph + '</span> ' + A.name +
+        ' + <span class="cat-' + B.cat + '">' + B.glyph + '</span> ' + B.name +
+        ' → ' + tail;
+      box.appendChild(d);
+    });
+  }
+
+  function paint() { paintEco(); paintVats(); paintSorts(); paintOpts(); paintRx(); }
+
+  MC.bus.on('state', paint);
+  MC.bus.on('pick', paint);
+  MC.bus.hello();
+  paint();
+})();
+</script>
+</body>
+</html>

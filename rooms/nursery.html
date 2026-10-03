@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>养成室 · 微宇宙</title>
+<link rel="stylesheet" href="../style.css">
+<style>
+  .back { font-size: 12.5px; }
+  .purse {
+    display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap;
+    border: 1px solid var(--line); background: var(--panel); padding: 9px 13px;
+  }
+  .purse .big { font-size: 19px; color: var(--acc); }
+  .purse .k { color: var(--dim); font-size: 12px; }
+
+  .branch { margin-top: 14px; }
+  .branch > h3 {
+    font-size: 12px; font-weight: 400; letter-spacing: .22em; color: var(--dim2);
+    margin: 0 0 8px; display: flex; align-items: baseline; gap: 9px;
+  }
+  .branch > h3 .n { margin-left: auto; color: var(--dim); letter-spacing: .06em; }
+  .nodes { display: grid; grid-template-columns: repeat(auto-fill, minmax(178px, 1fr)); gap: 8px; }
+
+  .node { border: 1px solid var(--line); background: var(--panel); padding: 8px 10px; }
+  .node.done { border-color: var(--acc-line); background: var(--hi-bg); }
+  .node.grow { border-color: var(--warn); }
+  .node.lock { opacity: .62; }
+  .node .top { display: flex; align-items: baseline; gap: 7px; }
+  .node .g { font-size: 17px; color: var(--hi); line-height: 1; }
+  .node.done .g { color: var(--acc); }
+  .node .nm { font-size: 13.5px; color: var(--hi); }
+  .node .cost { margin-left: auto; font-size: 12px; color: var(--warn); white-space: nowrap; }
+  .node.done .cost { color: var(--acc); }
+  .node .note { color: var(--dim); font-size: 12px; line-height: 2; margin-top: 3px; }
+  .node .req { color: var(--dim); font-size: 11.5px; margin-top: 3px; }
+  .node .bar { margin-top: 6px; }
+  .node .act { margin-top: 7px; }
+  .node .act button { font-size: 12px; padding: 3px 9px; }
+
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 760px) { .split { grid-template-columns: 1fr; } }
+  .panel { border: 1px solid var(--line); background: var(--panel); padding: 10px 12px; }
+  .panel h4 { font-size: 12px; font-weight: 400; letter-spacing: .2em; color: var(--dim2); margin: 0 0 7px; }
+  .kv { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 5px; }
+  .kv .s { border: 1px solid var(--line); padding: 3px 7px; font-size: 12px; color: var(--dim); }
+  .kv .s b { color: var(--hi); font-weight: 400; }
+  .list { font-size: 12.5px; color: var(--dim); line-height: 2; margin: 0; padding-left: 16px; }
+  .list b { color: var(--fg); font-weight: 400; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1 class="h1">养 成 室</h1>
+    <span class="sub">NURSERY · 局外成长，一直留着</span>
+    <a class="back" href="../index.html">← 回到总台</a>
+  </div>
+
+  <p class="lead">
+    每局结束按表现结算<b>残渣</b>，在这里换成永久的东西。
+    有的买下立刻生效，有的要<b>孵一会儿</b>——按真实时间走，关掉页面也在长。
+  </p>
+
+  <div class="sec">
+    <h2 class="h2">残 渣 <span class="n" id="hint"></span></h2>
+    <div class="purse">
+      <span class="k">可用</span><span class="big" id="res">0</span>
+      <span class="k">历史累计</span><span id="res-total">0</span>
+      <span class="k">已成熟</span><span id="done-n">0</span>
+      <span class="k">孵化中</span><span id="grow-n">0</span>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h2 class="h2">脉 络 <span class="n" id="node-n"></span></h2>
+    <div id="branches"></div>
+  </div>
+
+  <div class="sec">
+    <div class="split">
+      <div class="panel">
+        <h4>局 外（一直留着）</h4>
+        <ul class="list">
+          <li><b>元件库存与装配</b>　打到的、养出来的都在这</li>
+          <li><b>养成节点与残渣</b>　本页这些东西</li>
+          <li><b>培养皿与已知配方</b>　按真实时间自己跑</li>
+          <li><b>累计击杀与阶跃</b>　规则换档的那条线</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h4>局 内（每局重来）</h4>
+        <ul class="list">
+          <li><b>波次与本局击杀</b>　重来就归零</li>
+          <li><b>生命、护壁、蓄能</b>　每局重新充满</li>
+          <li><b>变异与 Boss 进度</b>　跟着波次走</li>
+          <li><b>再起次数</b>　买下后每局给一次</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h2 class="h2">当 前 生 效</h2>
+    <div class="kv" id="fx"></div>
+  </div>
+</div>
+
+<script src="../core/seed.js"></script>
+<script src="../core/eff.js"></script>
+<script src="../core/bus.js"></script>
+<script src="../core/lexicon.js"></script>
+<script src="../core/audio.js"></script>
+<script src="../core/cosmetics.js"></script>
+<script src="../world/nursery.js"></script>
+<script src="../world/modules.js"></script>
+<script src="../world/enemies.js"></script>
+<script src="../world/reactions.js"></script>
+<script src="../world/waves.js"></script>
+<script src="../world/ladder.js"></script>
+<script src="../world/epoch.js"></script>
+<script src="../world/anomaly.js"></script>
+<script>
+(function () {
+  'use strict';
+  var S = MC.bus.state;
+  MC.bus.load();
+  var $ = function (id) { return document.getElementById(id); };
+
+  var BRANCHES = [
+    { id: 'root',   name: '根', desc: '本体底子' },
+    { id: 'branch', name: '枝', desc: '掉落与拾取' },
+    { id: 'vein',   name: '脉', desc: '培养皿' },
+    { id: 'ring',   name: '环', desc: '装配台' },
+    { id: 'core',   name: '核', desc: '阶跃与终局' },
+    { id: 'law',    name: '律', desc: '纪元——改的是数字本身怎么长' },
+    { id: 'order',  name: '序', desc: '自动机——你写规则，规则自己跑' }
+  ];
+
+  function fmtSec(s) {
+    if (s >= 3600) return Math.floor(s / 3600) + ' 小时 ' + Math.floor((s % 3600) / 60) + ' 分';
+    if (s >= 60) return Math.floor(s / 60) + ' 分 ' + Math.round(s % 60) + ' 秒';
+    return Math.ceil(s) + ' 秒';
+  }
+
+  function paint() {
+    MC.nursery.tick();
+
+    $('res').textContent = String(S.residue || 0);
+    $('res-total').textContent = String(S.residueTotal || 0);
+    var doneN = Object.keys((S.nursery && S.nursery.done) || {}).length;
+    var growN = Object.keys((S.nursery && S.nursery.growing) || {}).length;
+    $('done-n').textContent = doneN + '/' + MC.NURSERY.length;
+    $('grow-n').textContent = String(growN);
+    $('node-n').textContent = MC.NURSERY.length + ' 个节点';
+    $('hint').textContent = growN ? ('孵化中 ' + growN + ' 项，按真实时间走') : '买下就生效，或孵一会儿';
+
+    var box = $('branches');
+    box.innerHTML = '';
+    BRANCHES.forEach(function (br) {
+      var list = MC.nursery.branchOf(br.id);
+      if (!list.length) return;
+      var sec = document.createElement('div');
+      sec.className = 'branch';
+      var got = list.filter(function (n) { return MC.nursery.isDone(n.id); }).length;
+      sec.innerHTML = '<h3>' + br.name + ' · ' + br.desc + '<span class="n">' + got + '/' + list.length + '</span></h3>';
+      var grid = document.createElement('div');
+      grid.className = 'nodes';
+
+      list.forEach(function (n) {
+        var why = MC.nursery.canBuy(n.id);
+        var left = MC.nursery.growLeft(n.id);
+        var done = MC.nursery.isDone(n.id);
+
+        var d = document.createElement('div');
+        d.className = 'node' + (done ? ' done' : (left > 0 ? ' grow' : (why && why !== 'cost' ? ' lock' : '')));
+
+        var costTxt = done ? '已生效' : (left > 0 ? '孵化中' : n.cost + ' 残渣');
+        var reqTxt = '';
+        if (!done && n.req.length) {
+          reqTxt = '需 ' + n.req.map(function (r) {
+            var rn = MC.nursery.byId(r);
+            return rn ? rn.name : r;
+          }).join('、');
+        }
+
+        d.innerHTML =
+          '<div class="top"><span class="g">' + n.glyph + '</span>' +
+          '<span class="nm">' + n.name + '</span>' +
+          '<span class="cost">' + costTxt + '</span></div>' +
+          '<div class="note">' + n.note + '</div>' +
+          (reqTxt && !done ? '<div class="req">' + reqTxt + '</div>' : '');
+
+        if (left > 0) {
+          var total = n.sec || 1;
+          var pct = Math.max(0, Math.min(1, 1 - left / total));
+          d.insertAdjacentHTML('beforeend',
+            '<div class="bar"><i style="width:' + (pct * 100).toFixed(1) + '%;background:var(--warn)"></i></div>' +
+            '<div class="req">还差 ' + fmtSec(left) + '</div>');
+        }
+
+        var act = document.createElement('div');
+        act.className = 'act';
+        if (done) {
+          act.innerHTML = '<span class="tag on">已生效</span>';
+        } else if (left > 0) {
+          act.innerHTML = '<span class="tag">孵化中</span>';
+        } else {
+          var b = document.createElement('button');
+          if (why === 'cost') { b.textContent = '残渣不足'; b.disabled = true; }
+          else if (why === 'req') { b.textContent = '先点亮前置'; b.disabled = true; }
+          else { b.textContent = n.sec > 0 ? ('买下并孵化 · ' + fmtSec(n.sec)) : '买下 · ' + n.cost; }
+          b.onclick = function () {
+            var r = MC.nursery.buy(n.id);
+            if (!r.ok) { MC.bus.toast('这一步走不通：' + r.why); return; }
+            MC.audio.pick();
+            MC.bus.toast(r.sec > 0 ? (n.name + ' 开始孵化 · ' + fmtSec(r.sec)) : (n.name + ' 立刻生效'));
+            paint();
+          };
+          act.appendChild(b);
+        }
+        d.appendChild(act);
+        grid.appendChild(d);
+      });
+
+      sec.appendChild(grid);
+      box.appendChild(sec);
+    });
+
+    /* 当前生效汇总 */
+    var nu = MC.nursery.effects();
+    var law = MC.epoch.laws(S.kills || 0);
+    var show = [
+      ['生命 +', Math.round(nu.hpAdd)], ['伤害 +', Math.round(nu.dmgAdd)],
+      ['速度 +', nu.speedAdd.toFixed(1)], ['射速', (1 / nu.rateMul).toFixed(2) + '×'],
+      ['掉落', nu.dropMul.toFixed(2) + '×'], ['吸附 +', Math.round(nu.magnetAdd)],
+      ['暴击 +', Math.round(nu.critAdd * 100) + '%'], ['护壁 +', Math.round(nu.shield)],
+      ['槽位', nu.slots], ['协同', nu.synMul.toFixed(2) + '×'],
+      ['跨空位', nu.synSkip ? '开' : '关'], ['共鸣加深', nu.synDeep ? '开' : '关'],
+      ['炉膛', nu.vatSlots], ['产物上限 +', nu.outLvBonus],
+      ['成对掉落', nu.twinChance ? Math.round(nu.twinChance * 100) + '%' : '关'],
+      ['合成预读', nu.rxPeek ? '开' : '关'],
+      ['阶跃门槛', nu.ladderMul.toFixed(2) + '×'], ['残渣收益', nu.residueMul.toFixed(2) + '×'],
+      ['残渣随波次', nu.residueWave ? '开' : '关'],
+      ['纪元门槛', nu.epochMul.toFixed(2) + '×'], ['纪元血量坡度', nu.epochHp.toFixed(2) + '×'],
+      ['自动机预算', nu.progBudget], ['自动机总开关', nu.progOn ? '可用' : '关'],
+      ['续命可用', nu.progMend ? '开' : '关'],
+      ['判定点', (4.5 * (nu.hitMul || 1) * (nu.dodge ? 0.86 : 1)).toFixed(2) + ' px'],
+      ['闪避', nu.dodge ? Math.round(nu.dodge * 100) + '%' : '关'],
+      ['起手蓄能', Math.round(nu.chargeStart)], ['蓄能速度', nu.chargeRate.toFixed(2) + '×'],
+      ['再起', nu.reviveMax ? ('每局 ' + nu.reviveMax + ' 次') : (nu.revive ? '每局一次' : '关')],
+      ['每五波必得', nu.guaranteed ? (nu.guaranteed2 ? '两件' : '一件') : '关'],
+      ['配方速记', nu.rxRecall ? '开' : '关'],
+      ['炉子混沌', nu.rxChaos ? '开' : '关'], ['下一波预告', nu.wavePeek ? '开' : '关'],
+      ['当前纪元律', '血量 ×' + law.hpWave.toFixed(2) + '　掉落 ×' + law.dropWave.toFixed(2) +
+        '　开火 ×' + law.rateWave.toFixed(2) + '　收边 ×' + law.edge.toFixed(2)]
+    ];
+    var kv = $('fx');
+    kv.innerHTML = '';
+    show.forEach(function (p) {
+      var s = document.createElement('div');
+      s.className = 's';
+      s.innerHTML = p[0] + ' <b>' + p[1] + '</b>';
+      kv.appendChild(s);
+    });
+  }
+
+  MC.bus.on('state', paint);
+  MC.bus.on('nursery', paint);
+  MC.bus.hello();
+  paint();
+  /* 孵化按真实时间走，隔一会儿自己刷新一次 */
+  setInterval(paint, 1000);
+})();
+</script>
+</body>
+</html>

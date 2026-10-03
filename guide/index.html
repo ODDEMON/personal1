@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>微宇宙 · 内置说明</title>
+<style>
+/* ==========================================================================
+   guide/style —— 双色，几何，对称
+   默认跟随系统明暗；右上角可手动切。两套都过 WCAG AA，不靠透明度压亮度。
+   改配色只改下面这两组变量。
+   —— 这一份内置说明同时也是一块皮肤预览：左边任意一屏换成深色都能读。
+   ========================================================================== */
+:root {
+  --bg: #f6f6f2;
+  --panel: #ffffff;
+  --panel2: #eeeee8;
+  --ink: #17171a;
+  --fg: #2c2c33;
+  --dim: #5b5b66;
+  --dim2: #777783;
+  --line: #d9d9d0;
+  --line2: #c2c2b8;
+  --acc: #1c6b58;
+  --acc2: #8d3a3a;
+  --acc-bg: #e6f0ec;
+  --warn: #7d5c14;
+  --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, ui-monospace, monospace;
+}
+html[data-theme="dark"] {
+  --bg: #0b0b0e;
+  --panel: #131318;
+  --panel2: #1b1b22;
+  --ink: #f0f0f4;
+  --fg: #dcdce2;
+  --dim: #9a9aa6;
+  --dim2: #b6b6c2;
+  --line: #262630;
+  --line2: #353542;
+  --acc: #6fe3c8;
+  --acc2: #ff8a7a;
+  --acc-bg: #12211d;
+  --warn: #e0ab6e;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg); }
+body {
+  font-family: var(--mono); font-size: 14.5px; line-height: 2.05;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--acc); text-decoration: none; border-bottom: 1px solid var(--line2); }
+a:hover { color: var(--ink); border-color: var(--acc); }
+button {
+  font: inherit; font-size: 13px; color: var(--fg); background: var(--panel);
+  border: 1px solid var(--line); padding: 4px 10px; cursor: pointer; letter-spacing: .04em;
+}
+button:hover { color: var(--ink); border-color: var(--acc); background: var(--panel2); }
+button.on { color: var(--acc); border-color: var(--acc); background: var(--acc-bg); }
+input {
+  font: inherit; font-size: 13.5px; color: var(--ink); background: var(--panel);
+  border: 1px solid var(--line); padding: 4px 9px; min-width: 190px;
+}
+input:focus { outline: none; border-color: var(--acc); }
+
+/* ---- 骨架 ---- */
+.top {
+  position: sticky; top: 0; z-index: 20; background: var(--bg);
+  border-bottom: 1px solid var(--line); padding: 9px 16px;
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+}
+.top .mark { display: flex; align-items: center; gap: 9px; }
+.top .mark svg { display: block; }
+.top h1 { font-size: 13.5px; font-weight: 400; letter-spacing: .28em; color: var(--ink); margin: 0; }
+.top .sub { font-size: 12px; color: var(--dim); letter-spacing: .06em; }
+.top .sp { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+.wrap { display: grid; grid-template-columns: 208px 1fr; gap: 0; max-width: 1240px; margin: 0 auto; }
+@media (max-width: 860px) {
+  .wrap { grid-template-columns: 1fr; }
+  .nav { display: none; }
+  #res { grid-column: 1; }
+}
+
+.nav { border-right: 1px solid var(--line); padding: 16px 12px 40px; }
+.nav .grp { font-size: 11px; letter-spacing: .2em; color: var(--dim); margin: 14px 0 5px; }
+.nav .grp:first-child { margin-top: 0; }
+.nav a {
+  display: block; font-size: 13px; color: var(--fg); border: 0;
+  padding: 2px 8px; border-left: 2px solid transparent;
+}
+.nav a:hover { color: var(--ink); background: var(--panel2); }
+.nav a.on { color: var(--acc); border-left-color: var(--acc); background: var(--acc-bg); }
+
+.main { padding: 20px 20px 60px; min-width: 0; }
+h2.pg { font-size: 13.5px; font-weight: 400; letter-spacing: .24em; color: var(--ink); margin: 0 0 4px; }
+.lead {
+  margin: 0 0 16px; padding: 9px 13px; border-left: 2px solid var(--acc);
+  color: var(--dim); font-size: 13.5px; line-height: 2; max-width: 84ch;
+}
+.lead b { color: var(--ink); font-weight: 400; }
+h3 {
+  font-size: 12.5px; font-weight: 400; letter-spacing: .18em; color: var(--ink);
+  margin: 22px 0 8px; padding-bottom: 5px; border-bottom: 1px solid var(--line);
+}
+p.note { color: var(--dim); font-size: 13.5px; max-width: 84ch; margin: 8px 0; }
+p.note b { color: var(--fg); font-weight: 400; }
+
+/* ---- 表 ---- */
+.tbl { width: 100%; border-collapse: collapse; margin: 8px 0 4px; font-size: 13px; }
+.tbl th {
+  text-align: left; font-weight: 400; font-size: 11px; letter-spacing: .16em;
+  color: var(--dim); border-bottom: 1px solid var(--line2); padding: 5px 8px 4px; white-space: nowrap;
+}
+.tbl td { border-bottom: 1px solid var(--line); padding: 4px 8px; vertical-align: top; }
+.tbl tr:hover td { background: var(--panel2); }
+.tbl .g { font-size: 14px; color: var(--ink); width: 26px; }
+.tbl .nm { color: var(--ink); white-space: nowrap; }
+.tbl .d { color: var(--dim); }
+.tbl .n { text-align: right; font-variant-numeric: tabular-nums; color: var(--fg); }
+.lv { font-size: 11px; color: var(--acc); border: 1px solid var(--line2); padding: 0 4px; }
+.tag { font-size: 11px; letter-spacing: .08em; color: var(--dim); border: 1px solid var(--line); padding: 0 5px; white-space: nowrap; }
+.tag.on { color: var(--acc); border-color: var(--acc); }
+.tag.bad { color: var(--acc2); border-color: var(--line2); }
+
+/* ---- 卡片网格 ---- */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(238px, 1fr)); gap: 8px; margin: 8px 0; }
+.card { border: 1px solid var(--line); background: var(--panel); padding: 8px 11px; }
+.card .hd { display: flex; align-items: baseline; gap: 7px; }
+.card .hd .g { font-size: 15px; color: var(--ink); }
+.card .hd .nm { font-size: 13.5px; color: var(--ink); }
+.card .hd .lv { margin-left: auto; }
+.card .bd { color: var(--dim); font-size: 12.5px; margin-top: 3px; line-height: 2; }
+.card .kv { color: var(--fg); font-size: 12px; margin-top: 3px; }
+
+/* ---- 条 ---- */
+.bar { height: 3px; background: var(--line); position: relative; margin-top: 4px; }
+.bar > i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--acc); }
+.bar.r > i { background: var(--acc2); }
+
+/* ---- 定义块 ---- */
+.def {
+  border: 1px solid var(--line); background: var(--panel);
+  padding: 10px 13px; margin: 10px 0; max-width: 84ch;
+}
+.def .n { font-size: 11px; letter-spacing: .18em; color: var(--acc); }
+.def .t { color: var(--fg); font-size: 13.5px; margin-top: 3px; }
+.def .t b { color: var(--ink); font-weight: 400; }
+
+/* ---- 勘误 ---- */
+.err { border-left: 2px solid var(--warn); padding: 2px 0 2px 12px; margin: 8px 0; }
+.err .n { font-size: 11.5px; letter-spacing: .14em; color: var(--warn); }
+.err .t { font-size: 13px; color: var(--dim); }
+
+/* ---- 字·毁 ---- */
+.art {
+  border: 1px solid var(--line); background: var(--panel); padding: 18px 16px;
+  font-size: 13.5px; line-height: 2.05; color: var(--fg); white-space: pre-wrap; max-width: 70ch;
+}
+.art .q { color: var(--acc2); }
+.art .z { color: var(--dim); }
+
+.foot { margin-top: 34px; padding-top: 13px; border-top: 1px solid var(--line); color: var(--dim); font-size: 12px; }
+.hint { color: var(--dim); font-size: 12.5px; margin: 7px 0; max-width: 84ch; }
+.warnbox {
+  border: 1px solid var(--line2); border-left: 2px solid var(--warn); background: var(--panel);
+  padding: 8px 12px; font-size: 13px; color: var(--dim); max-width: 84ch; margin: 10px 0;
+}
+.warnbox b { color: var(--warn); font-weight: 400; }
+#res { margin-top: 10px; }
+.empty { color: var(--dim); font-size: 13px; padding: 8px 0; }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="mark">
+    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+      <polygon points="12,2 21,7.5 21,16.5 12,22 3,16.5 3,7.5" fill="none" stroke="currentColor" stroke-width="1.1"/>
+      <polygon points="12,7 17,10 17,14 12,17 7,14 7,10" fill="none" stroke="currentColor" stroke-width="0.7" opacity="0.55"/>
+      <circle cx="12" cy="12" r="1.6" fill="currentColor"/>
+    </svg>
+    <h1>内 置 说 明</h1>
+    <span class="sub">微宇宙 · 规则自己跑，结果自己长</span>
+  </div>
+  <div class="sp">
+    <input id="q" placeholder="搜一个名字、字形或注脚" aria-label="搜索">
+    <button id="theme" title="切明暗">◐ 夜间</button>
+    <a href="../index.html" style="border:0">↩ 回主舞台</a>
+  </div>
+</div>
+
+<div class="wrap">
+  <nav class="nav" id="nav"></nav>
+  <main class="main" id="main"></main>
+  <div id="res" style="grid-column:2;padding:0 20px"></div>
+</div>
+
+<div class="wrap"><div style="padding:0 20px"><div class="foot" id="foot"></div></div></div>
+
+<script src="../core/seed.js"></script>
+<script src="../core/eff.js"></script>
+<script src="../core/bus.js"></script>
+<script src="../core/lexicon.js"></script>
+<script src="../core/cosmetics.js"></script>
+<script src="../world/nursery.js"></script>
+<script src="../world/modules.js"></script>
+<script src="../world/enemies.js"></script>
+<script src="../world/reactions.js"></script>
+<script src="../world/waves.js"></script>
+<script src="../world/ladder.js"></script>
+<script src="../world/epoch.js"></script>
+<script src="../world/anomaly.js"></script>
+<script src="guide.js"></script>
+</body>
+</html>

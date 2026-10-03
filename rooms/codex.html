@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>图鉴 · 微宇宙</title>
+<link rel="stylesheet" href="../style.css">
+<style>
+  .back { font-size: 12.5px; }
+  .cell {
+    border: 1px solid var(--line); background: var(--panel); padding: 8px 10px;
+    cursor: pointer; transition: border-color .15s, background .15s; text-align: left;
+    font: inherit; color: inherit; width: 100%;
+  }
+  .cell:hover { border-color: var(--acc-line); background: var(--panel2); }
+  .cell .g { font-size: 18px; float: right; margin-top: -1px; }
+  .cell .n { font-size: 13.5px; color: var(--hi); letter-spacing: .04em; }
+  .cell .d { font-size: 12px; color: var(--dim); margin-top: 3px; line-height: 2; }
+  .cell.void { cursor: default; }
+  .cell.void .n { color: var(--dim); }
+  .cell.void:hover { border-color: var(--line); background: var(--panel); }
+  .cell .lv { font-size: 11px; color: var(--warn); letter-spacing: .1em; }
+  .detail { border: 1px solid var(--line); background: var(--panel); padding: 11px 13px; margin-top: 10px; }
+  .detail .t { color: var(--hi); font-size: 13.5px; }
+  .detail .t .g { float: right; font-size: 18px; }
+  .detail .b { color: var(--dim); font-size: 12.5px; margin-top: 5px; line-height: 1.9; }
+  .rxline { font-size: 12.5px; color: var(--dim); margin-top: 4px; }
+  .grp { color: var(--dim2); font-size: 13.5px; letter-spacing: .16em; margin: 14px 0 8px; padding-bottom: 5px; border-bottom: 1px solid var(--line); }
+  .sorts { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 9px; }
+  .sorts .lab { font-size: 13.5px; color: var(--dim2); letter-spacing: .16em; }
+  .sorts button.sel { color: var(--acc); border-color: var(--acc-line); background: var(--hi-bg); }
+  .sortnote { color: var(--dim); font-size: 13.5px; line-height: 1.9; margin: 7px 0 0; max-width: 82ch; }
+  .foes { display: flex; gap: 6px; flex-wrap: wrap; }
+  .foes .grp { width: 100%; margin: 10px 0 6px; }
+  .foe {
+    width: 46px; height: 46px; border: 1px solid var(--line); background: var(--panel);
+    display: flex; align-items: center; justify-content: center; font-size: 19px; color: var(--hi);
+  }
+  .foe.void { color: var(--dim); border-style: dashed; }
+  .foe b { font-weight: 400; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1 class="h1">图 鉴</h1>
+    <span class="sub">CODEX · 你见过什么，这里就有什么</span>
+    <a class="back" href="../index.html">← 回到总台</a>
+  </div>
+
+  <p class="lead">
+    见过的才在这里占位。<b>没见过的留一个空位</b>，等你自己在场上撞上。
+    同一个元件的高阶版本，要拿两个一样的去培养皿里往上顶。
+  </p>
+
+  <div class="sec">
+    <h2 class="h2">元 件 <span class="n" id="cnt"></span></h2>
+    <div class="sorts" id="sorts"><span class="lab">排 序</span></div>
+    <p class="sortnote" id="sortnote"></p>
+    <div id="list"></div>
+  </div>
+
+  <div class="sec">
+    <h2 class="h2">明 细</h2>
+    <div class="detail" id="detail"></div>
+  </div>
+
+  <div class="sec">
+    <h2 class="h2">见 过 的 东 西 <span class="n" id="foe-n"></span></h2>
+    <div class="foes" id="foes"></div>
+    <p class="hint">这里只记样子，不记名字——它是什么，你在场上已经见过了。</p>
+  </div>
+
+  <div class="sec">
+    <h2 class="h2">见 过 的 精 化 <span class="n" id="elite-n"></span></h2>
+    <div class="grid" id="elites" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))"></div>
+    <p class="hint">外圈加一个字的那一种。看得见才可以针对。</p>
+  </div>
+
+  <div class="sec">
+    <h2 class="h2">进 度 <span class="n" id="prog-n"></span></h2>
+    <div class="detail" id="prog"></div>
+  </div>
+
+  <div class="sec">
+    <h2 class="h2">反 应 式 <span class="n" id="rx-n"></span></h2>
+    <div id="rx" style="font-size:12.5px;color:var(--dim);line-height:2"></div>
+  </div>
+</div>
+
+<script src="../core/seed.js"></script>
+<script src="../core/eff.js"></script>
+<script src="../core/bus.js"></script>
+<script src="../core/lexicon.js"></script>
+<script src="../core/audio.js"></script>
+<script src="../core/cosmetics.js"></script>
+<script src="../world/nursery.js"></script>
+<script src="../world/modules.js"></script>
+<script src="../world/enemies.js"></script>
+<script src="../world/reactions.js"></script>
+<script src="../world/waves.js"></script>
+<script src="../world/ladder.js"></script>
+<script src="../world/epoch.js"></script>
+<script src="../world/anomaly.js"></script>
+<script>
+(function () {
+  'use strict';
+  var S = MC.bus.state;
+  MC.bus.load();
+  var $ = function (id) { return document.getElementById(id); };
+  var CATS = [
+    { id: 'ballistic', name: '弹道' },
+    { id: 'chassis', name: '本体' },
+    { id: 'rule', name: '规则' },
+    { id: 'rare', name: '稀有' }
+  ];
+  var cur = null;
+
+  /* 排序控件：排法由声明表给出，图鉴只负责把它摆出来。 */
+  function paintSorts() {
+    var box = $('sorts');
+    Array.prototype.slice.call(box.querySelectorAll('button')).forEach(function (n) { n.remove(); });
+    var mode = MC.modules.sortMode();
+    MC.SORTS.forEach(function (s) {
+      var b = document.createElement('button');
+      b.className = s.id === mode ? 'sel' : '';
+      b.textContent = s.glyph + ' ' + s.name;
+      b.title = s.note;
+      b.onclick = function () { MC.modules.setSortMode(s.id); paint(); };
+      box.appendChild(b);
+    });
+    var def = MC.SORTS.filter(function (s) { return s.id === mode; })[0];
+    $('sortnote').textContent = def ? def.note : '';
+  }
+
+  /* 分堆的抬头：按种类时是种类名，按等级时是「第几级」。 */
+  function groupTitle(key, mode) {
+    if (mode === 'kind') {
+      var c = CATS.filter(function (x) { return x.id === key; })[0];
+      return '<span class="cat-' + key + '">' + (c ? c.name : key) + '</span>';
+    }
+    if (mode === 'lv') return key + ' 级';
+    return '全部';
+  }
+
+  function paint() {
+    var box = $('list');
+    box.innerHTML = '';
+    $('cnt').textContent = MC.bus.foundCount() + ' / ' + MC.MODULES.length;
+    paintSorts();
+
+    var mode = MC.modules.sortMode();
+    var list = MC.modules.sorted(MC.MODULES, mode);
+    var groups = [], byKey = {};
+    list.forEach(function (m) {
+      var k = MC.modules.groupOf(m, mode);
+      if (k == null) k = '__all';
+      if (!byKey[k]) { byKey[k] = { key: k, items: [] }; groups.push(byKey[k]); }
+      byKey[k].items.push(m);
+    });
+
+    groups.forEach(function (g) {
+      var got = g.items.filter(function (m) { return !!S.found[m.id]; }).length;
+      var h = document.createElement('div');
+      h.className = 'grp';
+      h.innerHTML = groupTitle(g.key, mode) + '　' + got + '/' + g.items.length;
+      box.appendChild(h);
+
+      var grid = document.createElement('div');
+      grid.className = 'grid';
+      g.items.forEach(function (m) {
+        var known = !!S.found[m.id];
+        var d = document.createElement(known ? 'button' : 'div');
+        d.className = 'cell' + (known ? '' : ' void');
+        if (known) {
+          d.innerHTML = '<span class="g cat-' + m.cat + '">' + m.glyph + '</span>' +
+            '<div class="n">' + m.name + ' <span class="lv">' + (m.levels > 1 ? 'Lv' + m.lv : '独级') + '</span></div>' +
+            '<div class="d">' + m.note + '</div>' +
+            '<div class="d">库存 ×' + (S.inventory[m.id] || 0) + '　阶 ' + m.tier + '</div>';
+          d.onclick = function () { cur = m.id; paint(); };
+        } else {
+          d.innerHTML = '<span class="g">' + MC.text.t('unknown') + '</span><div class="n">—</div>';
+        }
+        grid.appendChild(d);
+      });
+      box.appendChild(grid);
+    });
+    paintDetail();
+    paintFoes();
+    paintElites();
+    paintProg();
+    paintRx();
+  }
+
+  function paintDetail() {
+    var box = $('detail');
+    if (!cur) {
+      box.innerHTML = '<div class="b">点一个已发现的元件，看它都跟谁有过反应。</div>';
+      return;
+    }
+    var m = MC.modules.byId(cur);
+    if (!m) { box.innerHTML = ''; return; }
+    var family = MC.modules.ofBase(m.base);
+    var html = '<div class="t"><span class="g cat-' + m.cat + '">' + m.glyph + '</span>' + m.name + '</div>' +
+      '<div class="b">' + m.note + '</div>' +
+      '<div class="b">库存 ×' + (S.inventory[cur] || 0) + '　阶 ' + m.tier + '　' +
+      family.map(function (f) { return (S.found[f.id] ? f.name : '？'); }).join(' / ') + '</div>';
+
+    /* 已知反应：从册子里反查，含这一颗的组合 */
+    var lines = [];
+    Object.keys(S.knownRx || {}).forEach(function (k) {
+      var parts = k.split('+');
+      if (parts.indexOf(m.base) < 0 && parts.indexOf(m.id) < 0 && parts.indexOf(cur) < 0) return;
+      var other = parts[0] === m.base ? parts[1] : parts[0];
+      var rec = S.knownRx[k];
+      var outs = (rec.out || []).map(function (o) {
+        var mm = MC.modules.byId(o);
+        return mm ? ('<span class="cat-' + mm.cat + '">' + mm.glyph + '</span> ' + mm.name) : o;
+      }).join(' + ') || (rec.residue ? '残渣 ×' + rec.residue : '空');
+      var on = MC.modules.byId(other);
+      lines.push((on && S.found[other] ? ('<span class="cat-' + on.cat + '">' + on.glyph + '</span> ' + on.name) : '？') +
+        ' → ' + outs);
+    });
+    var syn = MC.SYNERGY.filter(function (s) { return s.a === m.base || s.b === m.base; });
+    html += '<div class="b" style="margin-top:8px">跟它跑通的反应：</div>';
+    html += lines.length ? lines.map(function (l) { return '<div class="rxline">' + l + '</div>'; }).join('')
+      : '<div class="rxline">还没跟谁跑通过。</div>';
+    html += '<div class="b" style="margin-top:6px">它能搭的协同：' + syn.length + ' 条</div>';
+    box.innerHTML = html;
+  }
+
+  /* 见过的东西：按四类分堆。四类在权重、掉落与打法上都不同，
+     所以图鉴也该照着这个分法摆——不然「新加了一类」这件事在页面上是不存在的。 */
+  function paintFoes() {
+    var box = $('foes');
+    box.innerHTML = '';
+    var n = 0;
+    MC.CLASSES.forEach(function (cl) {
+      var list = MC.enemies.ofClass(cl.id);
+      if (!list.length) return;
+      var h = document.createElement('div');
+      h.className = 'grp';
+      var got = list.filter(function (e) { return S.seen && S.seen[e.id]; }).length;
+      h.innerHTML = cl.name + '　' + got + '/' + list.length;
+      h.title = cl.note;
+      h.style.width = '100%';
+      box.appendChild(h);
+
+      var row = document.createElement('div');
+      row.className = 'foes';
+      row.style.width = '100%';
+      list.forEach(function (e) {
+        var d = document.createElement('div');
+        if (S.seen && S.seen[e.id]) {
+          d.className = 'foe';
+          d.innerHTML = '<b style="color:hsl(' + e.hue + ',62%,66%)">' + e.glyph + '</b>';
+          d.title = cl.name + '　' + e.name + '　第 ' + e.min + ' 波起';
+          n++;
+        } else {
+          d.className = 'foe void';
+          d.innerHTML = '<b>？</b>';
+          d.title = cl.name + '　第 ' + e.min + ' 波起会出现';
+        }
+        row.appendChild(d);
+      });
+      box.appendChild(row);
+    });
+    $('foe-n').textContent = n + ' / ' + MC.ENEMIES.length;
+  }
+
+  function paintElites() {
+    var box = $('elites');
+    box.innerHTML = '';
+    var n = 0;
+    MC.ELITES.forEach(function (e) {
+      var d = document.createElement('div');
+      /* 见过 = 在场上撞到过。这一层不靠击杀数解锁，靠眼睛。 */
+      var got = S.seen && S.seen['elite:' + e.id];
+      d.className = 'cell' + (got ? '' : ' void');
+      d.innerHTML = '<span class="g">' + (got ? e.glyph : '？') + '</span>' +
+        '<div class="n">' + (got ? e.name : '—') + '</div>' +
+        (got ? '<div class="d">' + e.note + '</div>' : '');
+      box.appendChild(d);
+      if (got) n++;
+    });
+    $('elite-n').textContent = n + ' / ' + MC.ELITES.length;
+  }
+
+  function paintProg() {
+    var box = $('prog');
+    var kills = S.kills || 0;
+    var tier = MC.ladder.tierOf(kills);
+    var eIdx = MC.epoch.idxOf(kills);
+    var law = MC.epoch.laws(kills);
+    var nu = MC.nursery.effects();
+    var lawTxt = MC.LAW_KEYS.filter(function (k) { return Math.abs(law[k] - 1) > 0.001; })
+      .map(function (k) { return k + ' ×' + (Math.round(law[k] * 100) / 100); }).join('　') || '中性值';
+    var html = '<div class="t">累计击杀 <b>' + MC.ladder.fmt(kills) + '</b></div>';
+    html += '<div class="b">阶跃 <b>第 ' + tier + ' 阶</b>　·　' +
+      (tier >= MC.LADDER.length ? '已到顶' : ('距下一阶还差 ' +
+        MC.ladder.fmt(Math.max(0, MC.ladder.atOf(tier + 1) - kills)) + ' 击杀')) + '</div>';
+    html += '<div class="b">纪元 <b>' + MC.epoch.cur(kills).name + '</b>（第 ' + eIdx + ' 把尺子）</div>';
+    html += '<div class="b">现行律：' + lawTxt + '</div>';
+    html += '<div class="b" style="margin-top:6px">槽位 <b>' + nu.slots + '</b>　炉膛 <b>' + nu.vatSlots + '</b></div>';
+    box.innerHTML = html;
+    $('prog-n').textContent = '阶跃 ' + tier + ' · 纪元 ' + MC.epoch.cur(kills).name;
+  }
+
+  function paintRx() {
+    var box = $('rx');
+    var ks = Object.keys(S.knownRx || {});
+    $('rx-n').textContent = ks.length + ' / ' + MC.reactions.total();
+    box.innerHTML = '';
+    if (!ks.length) {
+      box.innerHTML = '一条都没跑通。去培养皿投两个试试。';
+      return;
+    }
+    ks.slice(-60).forEach(function (k) {
+      var rec = S.knownRx[k];
+      var parts = k.split('+');
+      var A = MC.modules.byId(parts[0]), B = MC.modules.byId(parts[1]);
+      if (!A || !B) return;
+      var outs = (rec.out || []).map(function (o) {
+        var mm = MC.modules.byId(o);
+        return mm ? ('<span class="cat-' + mm.cat + '">' + mm.glyph + '</span> ' + mm.name) : o;
+      }).join(' + ');
+      var d = document.createElement('div');
+      d.innerHTML = '<span class="cat-' + A.cat + '">' + A.glyph + '</span> ' + A.name + ' + ' +
+        '<span class="cat-' + B.cat + '">' + B.glyph + '</span> ' + B.name + ' → ' +
+        (outs || (rec.residue ? '残渣 ×' + rec.residue : '空'));
+      box.appendChild(d);
+    });
+  }
+
+  MC.bus.on('state', paint);
+  MC.bus.on('found', paint);
+  MC.bus.on('pick', paint);
+  MC.bus.hello();
+  paint();
+})();
+</script>
+</body>
+</html>
